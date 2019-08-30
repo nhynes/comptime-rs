@@ -1,0 +1,25 @@
+name: main
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    
+    - name: Checkstyle
+      run: |
+        cargo clippy
+        cargo fmt -- --check
+        
+    - name: Checkstyle Tests
+      working-directory: tests
+      run: |
+        cargo clippy
+        cargo fmt -- --check
+      
+    - name: Test
+      working-directory: tests
+      run: cargo test
