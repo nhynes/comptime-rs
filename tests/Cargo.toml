@@ -1,0 +1,10 @@
+[package]
+name = "comptime-tests"
+version = "0.1.0"
+authors = ["Nick Hynes <nhynes@nhynes.com>"]
+edition = "2018"
+
+[dependencies]
+comptime = { path = "../" }
+rand = "0.7"
+chrono = "0.4"
