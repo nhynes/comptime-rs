@@ -23,7 +23,7 @@ jobs:
       working-directory: tests
       run: |
         cargo build # @see `comptime!` limitations
-        cargo clippy
+        cargo clippy --tests
         cargo fmt -- --check
 
     - name: Test

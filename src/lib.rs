@@ -4,6 +4,8 @@
 //! The expression returned by the contents of the comptime macro invocation will be parsed as
 //! Rust source code and inserted back into the call site.
 //!
+//! **tl;dr:** `comptime!` gives you no-context anonynmous proc macros.
+//!
 //! ### Example
 //!
 //! ```
@@ -31,7 +33,11 @@
 extern crate proc_macro;
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{
+        hash_map::{DefaultHasher, Entry},
+        HashMap,
+    },
+    hash::{Hash, Hasher},
     path::Path,
     process::Command,
 };
@@ -83,7 +89,12 @@ pub fn comptime(input: TokenStream) -> TokenStream {
         }
     };
 
-    let comptime_rs = out_dir.join("comptime.rs");
+    let comptime_program_str = comptime_program.to_token_stream().to_string();
+    let mut hasher = DefaultHasher::new();
+    comptime_program_str.hash(&mut hasher);
+    let comptime_disambiguator = hasher.finish();
+
+    let comptime_rs = out_dir.join(format!("comptime-{}.rs", comptime_disambiguator));
     std::fs::write(
         &comptime_rs,
         format!(
@@ -91,7 +102,7 @@ pub fn comptime(input: TokenStream) -> TokenStream {
                     let comptime_output = {{ {} }};
                     print!("{{}}", quote::quote!(#comptime_output));
                 }}"#,
-            comptime_program.to_token_stream().to_string()
+            comptime_program_str
         ),
     )
     .expect("could not write comptime.rs");

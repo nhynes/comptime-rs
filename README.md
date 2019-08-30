@@ -4,7 +4,7 @@ This crate is inspired by [Zig's `comptime`](https://ziglang.org/documentation/m
 The expression returned by the contents of the comptime macro invocation will be parsed as
 Rust source code and inserted back into the call site.
 
-**tl;dr:** `comptime!` gives you anonynmous proc macros.
+**tl;dr:** `comptime!` gives you no-context anonynmous proc macros.
 
 ### Example
 
