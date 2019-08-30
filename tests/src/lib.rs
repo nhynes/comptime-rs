@@ -14,7 +14,7 @@ fn test_basic() {
 
 #[test]
 fn test_inner_mac() {
-    assert_eq!(comptime!(stringify!(4)), 4);
+    assert_eq!(comptime!(stringify!(4)), "4");
 }
 
 #[test]

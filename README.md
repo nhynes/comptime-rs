@@ -10,11 +10,11 @@ Rust source code and inserted back into the call site.
 #![feature(proc_macro_hygiene)]
 fn main() {
     println!(concat!(
-        "This program was compiled at ",
+        "The program was compiled on ",
         comptime::comptime! {
-            chrono::Utc::now()
+            chrono::Utc::now().format("%Y-%m-%d").to_string()
         },
         "."
-    )); // "This program was compiled at 2019-08-30 03:52:58.496747469 UTC."
+    )); // The program was compiled on 2019-08-30.
 }
 ```

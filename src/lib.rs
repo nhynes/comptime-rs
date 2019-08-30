@@ -10,18 +10,31 @@
 //! #![feature(proc_macro_hygiene)]
 //! fn main() {
 //!     println!(concat!(
-//!         "This program was compiled at ",
+//!         "The program was compiled on ",
 //!         comptime::comptime! {
-//!             chrono::Utc::now()
+//!             chrono::Utc::now().format("%Y-%m-%d").to_string()
 //!         },
 //!         "."
-//!     )); // "This program was compiled at 2019-08-30 03:52:58.496747469 UTC."
+//!     )); // The program was compiled on 2019-08-30.
 //! }
 //! ```
+//!
+//! ### Limitations
+//!
+//! Unlike Zig, `comptime!` does not have access to the scope in which it is invoked.
+//! The code in `comptime!` is run as its own script. Though, technically, you could
+//! interpolate in static values a la `quote!`.
+//!
+//! Also, `comptime!` requires you to run `cargo build` at least once before `cargo (clippy|check)`
+//! will work since `comptime!` does not compile dependencies.
 
 extern crate proc_macro;
 
-use std::{path::Path, process::Command};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    path::Path,
+    process::Command,
+};
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
@@ -61,34 +74,25 @@ pub fn comptime(input: TokenStream) -> TokenStream {
             .and_then(|p| args.get(p + 1))
     };
 
-    let is_check = args
-        .iter()
-        .find(|a| a.starts_with("--emit"))
-        .map(|emit| !emit.contains("link"))
-        .unwrap_or_default();
-
-    let comptime_program = if !is_check {
-        syn::parse_macro_input!(input as BlockInner)
-    } else {
-        syn::parse_quote!("")
-    };
+    let comptime_program = syn::parse_macro_input!(input as BlockInner);
 
     let out_dir = match get_arg("--out-dir") {
-        Some(out_dir) => out_dir,
+        Some(out_dir) => Path::new(out_dir),
         None => {
             err!("comptime failed: could not determine rustc out dir.");
         }
     };
 
-    let comptime_rs = Path::new(out_dir).join("comptime.rs");
+    let comptime_rs = out_dir.join("comptime.rs");
     std::fs::write(
         &comptime_rs,
-        quote! {
-            fn main() {
-                print!("{}", { #comptime_program });
-            }
-        }
-        .to_string(),
+        format!(
+            r#"fn main() {{
+                    let comptime_output = {{ {} }};
+                    print!("{{}}", quote::quote!(#comptime_output));
+                }}"#,
+            comptime_program.to_token_stream().to_string()
+        ),
     )
     .expect("could not write comptime.rs");
     Command::new("rustfmt").arg(&comptime_rs).output().ok();
@@ -98,6 +102,8 @@ pub fn comptime(input: TokenStream) -> TokenStream {
     rustc_args.push("comptime_bin".to_string());
     rustc_args.push("--crate-type".to_string());
     rustc_args.push("bin".to_string());
+    rustc_args.push("--emit=dep-info,link".to_string());
+    rustc_args.append(&mut merge_externs(&out_dir, &args));
     rustc_args.push(comptime_rs.to_str().unwrap().to_string());
 
     let compile_output = Command::new("rustc")
@@ -116,9 +122,9 @@ pub fn comptime(input: TokenStream) -> TokenStream {
         .find(|a| a.starts_with("extra-filename="))
         .map(|ef| ef.split('=').nth(1).unwrap())
         .unwrap_or_default();
-    let comptime_bin = Path::new(out_dir).join(format!("comptime_bin{}", extra_filename));
+    let comptime_bin = out_dir.join(format!("comptime_bin{}", extra_filename));
 
-    let comptime_output = Command::new(comptime_bin)
+    let comptime_output = Command::new(&comptime_bin)
         .output()
         .expect("could not invoke comptime_bin");
 
@@ -142,6 +148,9 @@ pub fn comptime(input: TokenStream) -> TokenStream {
         .into(),
     };
 
+    std::fs::remove_file(comptime_rs).ok();
+    std::fs::remove_file(comptime_bin).ok();
+
     TokenStream::from(ToTokens::to_token_stream(&comptime_expr))
 }
 
@@ -154,13 +163,69 @@ fn filter_rustc_args(args: &[String]) -> Vec<String> {
             skip = false;
             continue;
         }
-        if arg == "--crate-type" || arg == "--crate-name" {
+        if arg == "--crate-type" || arg == "--crate-name" || arg == "--extern" {
             skip = true;
-        } else if arg.ends_with(".rs") || arg == "--test" || arg == "rustc" {
+        } else if arg.ends_with(".rs")
+            || arg == "--test"
+            || arg == "rustc"
+            || arg.starts_with("--emit")
+        {
             continue;
         } else {
             rustc_args.push(arg.clone());
         }
     }
     rustc_args
+}
+
+fn merge_externs(deps_dir: &Path, args: &[String]) -> Vec<String> {
+    let mut cargo_rlibs = HashMap::new(); // libfoo -> /path/to/libfoo-12345.rlib
+    let mut next_is_extern = false;
+    for arg in args {
+        if next_is_extern {
+            let mut libname_path = arg.split('=');
+            let lib_name = libname_path.next().unwrap(); // libfoo
+            let path = Path::new(libname_path.next().unwrap());
+            if path.extension().unwrap() == "rlib" {
+                cargo_rlibs.insert(lib_name.to_string(), path.to_path_buf());
+            }
+        }
+        next_is_extern = arg == "--extern";
+    }
+
+    let mut dep_dirents: Vec<_> = std::fs::read_dir(deps_dir)
+        .unwrap()
+        .filter_map(|de| {
+            let de = de.unwrap();
+            let p = de.path();
+            let fname = p.file_name().unwrap().to_str().unwrap();
+            if fname.starts_with("lib") && fname.ends_with(".rlib") {
+                Some(de)
+            } else {
+                None
+            }
+        })
+        .collect();
+    dep_dirents.sort_by_key(|de| std::cmp::Reverse(de.metadata().and_then(|m| m.created()).ok()));
+
+    for dirent in dep_dirents {
+        let path = dirent.path();
+        let fname = path.file_name().unwrap().to_str().unwrap();
+        if !fname.ends_with(".rlib") {
+            continue;
+        }
+        let lib_name = fname.rsplitn(2, '-').nth(1).unwrap().to_string();
+        // ^ reverse "libfoo-disambiguator" then split off the disambiguator
+        if let Entry::Vacant(ve) = cargo_rlibs.entry(lib_name) {
+            ve.insert(path);
+        }
+    }
+
+    let mut merged_externs = Vec::with_capacity(cargo_rlibs.len() * 2);
+    for (lib_name, path) in cargo_rlibs.iter() {
+        merged_externs.push("--extern".to_string());
+        merged_externs.push(format!("{}={}", &lib_name["lib".len()..], path.display()));
+    }
+
+    merged_externs
 }

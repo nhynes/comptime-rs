@@ -2,9 +2,9 @@
 
 fn main() {
     println!(concat!(
-        "This program was compiled at ",
+        "The program was compiled on ",
         comptime::comptime! {
-            chrono::Utc::now()
+            chrono::Utc::now().format("%Y-%m-%d").to_string()
         },
         "."
     ));
