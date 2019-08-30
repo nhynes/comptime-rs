@@ -23,7 +23,7 @@
 //!
 //! Unlike Zig, `comptime!` does not have access to the scope in which it is invoked.
 //! The code in `comptime!` is run as its own script. Though, technically, you could
-//! interpolate in static values a la `quote!`.
+//! interpolate static values using `quote!`.
 //!
 //! Also, `comptime!` requires you to run `cargo build` at least once before `cargo (clippy|check)`
 //! will work since `comptime!` does not compile dependencies.
@@ -151,7 +151,7 @@ pub fn comptime(input: TokenStream) -> TokenStream {
     std::fs::remove_file(comptime_rs).ok();
     std::fs::remove_file(comptime_bin).ok();
 
-    TokenStream::from(ToTokens::to_token_stream(&comptime_expr))
+    TokenStream::from(comptime_expr.to_token_stream())
 }
 
 /// Returns the rustc args needed to build the comptime executable.
