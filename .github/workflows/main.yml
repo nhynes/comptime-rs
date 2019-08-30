@@ -1,6 +1,6 @@
 name: main
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -8,18 +8,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    
+
+    - name: Use real (nightly) Rust
+      run: |
+        rustup default nightly-2019-08-26 # known to have rustfmt and clippy
+        rustup component add rustfmt clippy
+
     - name: Checkstyle
       run: |
         cargo clippy
         cargo fmt -- --check
-        
+
     - name: Checkstyle Tests
       working-directory: tests
       run: |
+        cargo build # @see `comptime!` limitations
         cargo clippy
         cargo fmt -- --check
-      
+
     - name: Test
       working-directory: tests
       run: cargo test
