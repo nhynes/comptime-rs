@@ -4,6 +4,8 @@
 //! The expression returned by the contents of the comptime macro invocation will be parsed as
 //! Rust source code and inserted back into the call site.
 //!
+//! **tl;dr:** `comptime!` gives you no-context anonynmous proc macros.
+//!
 //! ### Example
 //!
 //! ```
