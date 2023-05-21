@@ -8,8 +8,7 @@
 //!
 //! ### Example
 //!
-//! ```
-//! #![feature(proc_macro_hygiene)]
+//! ``` compile_fail
 //! fn main() {
 //!     println!(concat!(
 //!         "The program was compiled on ",
@@ -29,6 +28,9 @@
 //!
 //! Also, `comptime!` requires you to run `cargo build` at least once before `cargo (clippy|check)`
 //! will work since `comptime!` does not compile dependencies.
+//!
+//! Finally, using this macro in doctests may fail with strange errors for no good reason. This is
+//! because output directory detection is imperfect and sometimes breaks. You have been warned.
 
 extern crate proc_macro;
 
