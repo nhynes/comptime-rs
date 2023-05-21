@@ -1,4 +1,3 @@
-#![feature(proc_macro_hygiene)]
 
 fn main() {
     println!(concat!(
