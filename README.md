@@ -52,7 +52,7 @@ will work since `comptime!` does not compile dependencies.
 
 Strings generated with comptime_fn will be represented as `&'static str` as it is known at compile time, to fix this, you need to simply run `String::from(comptime_fn())` or `comptime_fn().to_string()`.
 
-Due to how the comptime macro works, writing to stdout will almost definitely cause comptime-rs to faile to build.
+Due to how the comptime macro works, writing to stdout will almost definitely cause comptime-rs to fail to build.
 
 The comptime_fn attribute macro still makes the function call to the compile time function, but all calculations inside that function are performed at compile time. e.g.
 
