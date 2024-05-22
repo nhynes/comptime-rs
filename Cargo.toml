@@ -1,7 +1,7 @@
 [package]
 name = "comptime"
 version = "0.1.1"
-authors = ["Nick Hynes <nhynes@nhynes.com>"]
+authors = ["Nick Hynes <nhynes@nhynes.com>", "Zoe Soutter <zoe@soutter.com>"]
 edition = "2018"
 description = "Compile-time code execution (i.e. lightweight proc-macro)"
 readme = "README.md"
