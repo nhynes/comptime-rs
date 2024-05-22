@@ -4,6 +4,14 @@
 extern crate comptime;
 
 #[test]
+fn test_attribute() {
+    assert_eq!("5 + 6 = 11", at_comptime())
+}
+#[comptime::comptime_fn]
+fn at_comptime() -> &'static str {
+    format!("5 + 6 = {}", 5 + 6)
+}
+#[test]
 fn test_basic() {
     assert_eq!(
         concat!("u32 is ", comptime!(std::mem::size_of::<u32>()), " bytes"),

@@ -33,7 +33,6 @@
 //! because output directory detection is imperfect and sometimes breaks. You have been warned.
 
 extern crate proc_macro;
-
 use std::{
     collections::{
         hash_map::{DefaultHasher, Entry},
@@ -43,7 +42,7 @@ use std::{
     path::Path,
     process::Command,
 };
-
+mod comptime_impl;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream};
@@ -71,6 +70,11 @@ impl ToTokens for BlockInner {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.append_all(self.stmts.iter());
     }
+}
+
+#[proc_macro_attribute]
+pub fn comptime_fn(args: TokenStream, item: TokenStream) -> TokenStream {
+    comptime_impl::comptime_impl(args, item)
 }
 
 #[proc_macro]
