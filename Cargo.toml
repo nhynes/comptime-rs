@@ -1,6 +1,6 @@
 [package]
 name = "comptime"
-version = "0.1.1"
+version = "1.0.0"
 authors = ["Nick Hynes <nhynes@nhynes.com>", "Zoe Soutter <zoe@soutter.com>"]
 edition = "2021"
 description = "Compile-time code execution (i.e. lightweight proc-macro)"
