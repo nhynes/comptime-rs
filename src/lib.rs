@@ -9,15 +9,13 @@
 //! ### Example
 //!
 //! ``` compile_fail
-//! fn main() {
-//!     println!(concat!(
-//!         "The program was compiled on ",
-//!         comptime::comptime! {
-//!             chrono::Utc::now().format("%Y-%m-%d").to_string()
-//!         },
-//!         "."
-//!     )); // The program was compiled on 2019-08-30.
-//! }
+//! println!(concat!(
+//!     "The program was compiled on ",
+//!     comptime::comptime! {
+//!         chrono::Utc::now().format("%Y-%m-%d").to_string()
+//!     },
+//!     "."
+//! )); // The program was compiled on 2019-08-30.
 //! ```
 //!
 //! ### Limitations
@@ -46,7 +44,10 @@ use std::{
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{parse::{Parse, ParseStream}, ItemFn};
+use syn::{
+    parse::{Parse, ParseStream},
+    ItemFn,
+};
 
 macro_rules! err {
     ($fstr:literal$(,)? $( $arg:expr ),*) => {{
@@ -74,7 +75,7 @@ impl ToTokens for BlockInner {
 }
 
 #[proc_macro_attribute]
-pub fn comptime_fn(args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn comptime_fn(_args: TokenStream, item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as ItemFn);
 
     let ItemFn {
@@ -95,7 +96,6 @@ pub fn comptime_fn(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     )
     .into()
-    
 }
 
 #[proc_macro]
@@ -141,7 +141,7 @@ pub fn comptime(input: TokenStream) -> TokenStream {
     rustc_args.push("--crate-type".to_string());
     rustc_args.push("bin".to_string());
     rustc_args.push("--emit=dep-info,link".to_string());
-    rustc_args.append(&mut merge_externs(&out_dir, &args));
+    rustc_args.append(&mut merge_externs(out_dir, &args));
     rustc_args.push(comptime_rs.to_str().unwrap().to_string());
 
     let compile_output = Command::new("rustc")
@@ -252,7 +252,7 @@ fn merge_externs(deps_dir: &Path, args: &[String]) -> Vec<String> {
         if !fname.ends_with(".rlib") {
             continue;
         }
-        let lib_name = fname.rsplitn(2, '-').nth(1).unwrap().to_string();
+        let lib_name = fname.rsplit_once('-').unwrap().0.to_string();
         // ^ reverse "libfoo-disambiguator" then split off the disambiguator
         if let Entry::Vacant(ve) = cargo_rlibs.entry(lib_name) {
             ve.insert(path);
@@ -262,7 +262,11 @@ fn merge_externs(deps_dir: &Path, args: &[String]) -> Vec<String> {
     let mut merged_externs = Vec::with_capacity(cargo_rlibs.len() * 2);
     for (lib_name, path) in cargo_rlibs.iter() {
         merged_externs.push("--extern".to_string());
-        merged_externs.push(format!("{}={}", &lib_name.strip_prefix("lib").unwrap_or(lib_name), path.display()));
+        merged_externs.push(format!(
+            "{}={}",
+            &lib_name.strip_prefix("lib").unwrap_or(lib_name),
+            path.display()
+        ));
     }
 
     merged_externs
