@@ -33,6 +33,7 @@
 //! because output directory detection is imperfect and sometimes breaks. You have been warned.
 
 extern crate proc_macro;
+
 use std::{
     collections::{
         hash_map::{DefaultHasher, Entry},
@@ -42,10 +43,10 @@ use std::{
     path::Path,
     process::Command,
 };
-mod comptime_impl;
+
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::parse::{Parse, ParseStream};
+use syn::{parse::{Parse, ParseStream}, ItemFn};
 
 macro_rules! err {
     ($fstr:literal$(,)? $( $arg:expr ),*) => {{
@@ -74,7 +75,27 @@ impl ToTokens for BlockInner {
 
 #[proc_macro_attribute]
 pub fn comptime_fn(args: TokenStream, item: TokenStream) -> TokenStream {
-    comptime_impl::comptime_impl(args, item)
+    let input = syn::parse_macro_input!(item as ItemFn);
+
+    let ItemFn {
+        // The function signature
+        sig,
+        // The visibility specifier of this function
+        vis,
+        // The function block or body
+        block,
+        // Other attributes applied to this function
+        attrs,
+    } = input;
+    let result: proc_macro2::TokenStream = comptime(block.to_token_stream().into()).into();
+    quote::quote!(
+        #(#attrs)*
+        #vis #sig {
+            #result
+        }
+    )
+    .into()
+    
 }
 
 #[proc_macro]
@@ -241,7 +262,7 @@ fn merge_externs(deps_dir: &Path, args: &[String]) -> Vec<String> {
     let mut merged_externs = Vec::with_capacity(cargo_rlibs.len() * 2);
     for (lib_name, path) in cargo_rlibs.iter() {
         merged_externs.push("--extern".to_string());
-        merged_externs.push(format!("{}={}", &lib_name["lib".len()..], path.display()));
+        merged_externs.push(format!("{}={}", &lib_name.strip_prefix("lib").unwrap_or(lib_name), path.display()));
     }
 
     merged_externs
